@@ -1097,6 +1097,8 @@ public class HiveConf extends Configuration {
         "columns in operators such as Aggregate or Join so that we try to reduce the number of shuffling stages"),
 
     // materialized views
+    HIVE_MATERIALIZED_VIEW_LOAD_ON_STARTUP("hive.materializedview.loadonstartup", true, "When true, materialized views" +
+            " are looked up when HiveServer2 starts"),
     HIVE_MATERIALIZED_VIEW_ENABLE_AUTO_REWRITING("hive.materializedview.rewriting", false,
         "Whether to try to rewrite queries using the materialized views enabled for rewriting"),
     HIVE_MATERIALIZED_VIEW_FILE_FORMAT("hive.materializedview.fileformat", "ORC",
