@@ -117,18 +117,23 @@ public class PerfLogger {
     perfLogger.set(resetPerfLogger);
   }
 
+
+  public void PerfLogBegin(String callerName, String method) {
+    PerfLogBegin(callerName, method, null);
+  }
+
   /**
    * Call this function when you start to measure time spent by a piece of code.
    * @param callerName the logging object to be used.
    * @param method method or ID that identifies this perf log element.
    */
-  public void PerfLogBegin(String callerName, String method) {
+  public void PerfLogBegin(String callerName, String method, String user) {
     long startTime = System.currentTimeMillis();
     startTimes.put(method, new Long(startTime));
     if (LOG.isDebugEnabled()) {
       LOG.debug("<PERFLOG method=" + method + " from=" + callerName + ">");
     }
-    beginMetrics(method);
+    beginMetrics(method, user);
   }
   /**
    * Call this function in correspondence of PerfLogBegin to mark the end of the measurement.
@@ -218,10 +223,11 @@ public class PerfLogger {
   //Methods for metrics integration.  Each thread-local PerfLogger will open/close scope during each perf-log method.
   transient Map<String, MetricsScope> openScopes = new HashMap<String, MetricsScope>();
 
-  private void beginMetrics(String method) {
+  private void beginMetrics(String method, String user) {
     Metrics metrics = MetricsFactory.getInstance();
     if (metrics != null) {
-      MetricsScope scope = metrics.createScope(MetricsConstant.API_PREFIX + method);
+      String userSuffix = user == null ? "" : "_username_" + user;
+      MetricsScope scope = metrics.createScope(MetricsConstant.API_PREFIX + method + userSuffix);
       openScopes.put(method, scope);
     }
 

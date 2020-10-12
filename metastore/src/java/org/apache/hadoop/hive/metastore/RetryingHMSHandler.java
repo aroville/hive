@@ -102,7 +102,7 @@ public class RetryingHMSHandler implements InvocationHandler {
     int threadId = HiveMetaStore.HMSHandler.get();
     boolean error = true;
     PerfLogger perfLogger = PerfLogger.getPerfLogger(origConf, false);
-    perfLogger.PerfLogBegin(CLASS_NAME, method.getName());
+    perfLogger.PerfLogBegin(CLASS_NAME, method.getName(), origConf.getUser());
     try {
       Result result = invokeInternal(proxy, method, args);
       retryCount = result.numRetries;

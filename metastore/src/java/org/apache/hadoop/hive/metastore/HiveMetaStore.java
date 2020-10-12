@@ -784,11 +784,18 @@ public class HiveMetaStore extends ThriftHiveMetastore {
     }
 
     private String startFunction(String function, String extraLogInfo) {
-      incrementCounter(function);
+      String functionName = function;
+      try {
+        functionName += "_username_" + hiveConf.getUser();
+      } catch (IOException e) {
+        LOG.error("Failed to get user info", e);
+      }
+
+      incrementCounter(functionName);
       logInfo((getThreadLocalIpAddress() == null ? "" : "source:" + getThreadLocalIpAddress() + " ") +
           function + extraLogInfo);
       if (MetricsFactory.getInstance() != null) {
-        MetricsFactory.getInstance().startStoredScope(MetricsConstant.API_PREFIX + function);
+        MetricsFactory.getInstance().startStoredScope(MetricsConstant.API_PREFIX + functionName);
       }
       return function;
     }
@@ -832,7 +839,13 @@ public class HiveMetaStore extends ThriftHiveMetastore {
 
     private void endFunction(String function, MetaStoreEndFunctionContext context) {
       if (MetricsFactory.getInstance() != null) {
-        MetricsFactory.getInstance().endStoredScope(MetricsConstant.API_PREFIX + function);
+        String functionName = function;
+        try {
+          functionName += "_username_" + hiveConf.getUser();
+        } catch (IOException e) {
+          LOG.error("Failed to get user info", e);
+        }
+        MetricsFactory.getInstance().endStoredScope(MetricsConstant.API_PREFIX + functionName);
       }
 
       for (MetaStoreEndFunctionListener listener : endFunctionListeners) {
