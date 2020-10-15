@@ -139,7 +139,6 @@ public class CodahaleMetrics implements org.apache.hadoop.hive.common.metrics.co
      */
     public void close() {
       if (isOpen) {
-        timerContext.close();
         CodahaleMetrics.this.decrementCounter(MetricsConstant.ACTIVE_CALLS + name);
       } else {
         LOGGER.warn("Scope named " + name + " is not open, cannot be closed.");
