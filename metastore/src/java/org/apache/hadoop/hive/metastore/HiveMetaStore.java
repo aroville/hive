@@ -74,6 +74,7 @@ import org.apache.hadoop.hive.common.auth.HiveAuthUtils;
 import org.apache.hadoop.hive.common.classification.InterfaceAudience;
 import org.apache.hadoop.hive.common.classification.InterfaceStability;
 import org.apache.hadoop.hive.common.cli.CommonCliOptions;
+import org.apache.hadoop.hive.common.metrics.SimpleTimer;
 import org.apache.hadoop.hive.common.metrics.common.Metrics;
 import org.apache.hadoop.hive.common.metrics.common.MetricsConstant;
 import org.apache.hadoop.hive.common.metrics.common.MetricsFactory;
@@ -783,6 +784,10 @@ public class HiveMetaStore extends ThriftHiveMetastore {
       logAuditEvent(m);
     }
 
+    private static boolean isReadFunction(String function) {
+      return function.startsWith("get") || function.startsWith("partition_name");
+    }
+
     private String startFunction(String function, String extraLogInfo) {
       String functionName = function;
       try {
@@ -794,8 +799,20 @@ public class HiveMetaStore extends ThriftHiveMetastore {
       incrementCounter(functionName);
       logInfo((getThreadLocalIpAddress() == null ? "" : "source:" + getThreadLocalIpAddress() + " ") +
           function + extraLogInfo);
-      if (MetricsFactory.getInstance() != null) {
-        MetricsFactory.getInstance().startStoredScope(MetricsConstant.API_PREFIX + functionName);
+      Metrics metrics = MetricsFactory.getInstance();
+      if (metrics != null) {
+        metrics.startStoredScope(MetricsConstant.API_PREFIX + function);
+        SimpleTimer.start(function);
+        try {
+          String userSuffix = "_username_" + hiveConf.getShortUser();
+          if (isReadFunction(function)) {
+            metrics.incrementCounter(MetricsConstant.API_PREFIX + "read_total" + userSuffix);
+          } else {
+            metrics.incrementCounter(MetricsConstant.API_PREFIX + "write_total" + userSuffix);
+          }
+        } catch (IOException e) {
+          LOG.warn("Failed to get authenticated user", e);
+        }
       }
       return function;
     }
@@ -847,6 +864,9 @@ public class HiveMetaStore extends ThriftHiveMetastore {
         }
         MetricsFactory.getInstance().endStoredScope(MetricsConstant.API_PREFIX + functionName);
       }
+
+      Long elapsedTimeMs = SimpleTimer.stop(function);
+      context.setElapsedTimeMs(elapsedTimeMs);
 
       for (MetaStoreEndFunctionListener listener : endFunctionListeners) {
         listener.onEndFunction(function, context);
@@ -3771,6 +3791,28 @@ public class HiveMetaStore extends ThriftHiveMetastore {
       return getMS().listPartitionValues(dbName, tblName, request.getPartitionKeys(),
           request.isApplyDistinct(), request.getFilter(), request.isAscending(),
           request.getPartitionOrder(), request.getMaxParts());
+    }
+
+    @Override
+    public Map<String, String> get_partition_locations(final String db_name, final String tbl_name,
+                                            final short max_parts) throws MetaException, NoSuchObjectException {
+      startTableFunction("get_partition_locations", db_name, tbl_name);
+      fireReadTablePreEvent(db_name, tbl_name);
+      Map<String, String> ret = null;
+      Exception ex = null;
+      try {
+        ret = getMS().listPartitionLocations(db_name, tbl_name, max_parts);
+      } catch (Exception e) {
+        ex = e;
+        if (e instanceof MetaException) {
+          throw (MetaException) e;
+        } else {
+          throw newMetaException(e);
+        }
+      } finally {
+        endFunction("get_partition_locations", ret != null, ex, db_name, tbl_name);
+      }
+      return ret;
     }
 
     @Override
